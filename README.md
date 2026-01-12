@@ -1,8 +1,6 @@
 # Un mini Pokedex
 
-## Images d'exemple ✅
-
-Voici les deux images d'exemple, affichées côte à côte et redimensionnées :
+## Images d'exemple
 
 <table>
   <tr>
