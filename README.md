@@ -2,8 +2,14 @@
 
 ## Images d'exemple ✅
 
-![Exemple 1](assets/images/exemple_1.png)
-![Exemple 2](assets/images/exemple_2.png)
+Voici les deux images d'exemple, affichées côte à côte et redimensionnées :
+
+<table>
+  <tr>
+    <td><img src="assets/images/exemple_1.png" alt="Exemple 1" width="220"></td>
+    <td><img src="assets/images/exemple_2.PNG" alt="Exemple 2" width="220"></td>
+  </tr>
+</table>
 
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
