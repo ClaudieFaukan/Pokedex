@@ -15,6 +15,7 @@
   <tr>
     <td><img src="assets/images/exemple_1.png" alt="Exemple 1" width="220"></td>
     <td><img src="assets/images/exemple_2.PNG" alt="Exemple 2" width="220"></td>
+    <td><img src="assets/images/search.PNG" alt="Exemple 2" width="220"></td>
   </tr>
 </table>
 
