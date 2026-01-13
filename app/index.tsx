@@ -6,9 +6,11 @@ import {
   FlatList,
   Image,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
+  Pressable
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -16,6 +18,8 @@ interface Pokemon {
   name: string;
   image: string;
   imageBack: string;
+  artwork: string | null;
+  artworkShinny: string | null;
   types: PokemonType[];
 }
 interface PokemonType {
@@ -30,16 +34,17 @@ export default function Index() {
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  const [isLoading, setIsLoading] = useState(false);       // loader initial
-  const [isLoadingMore, setIsLoadingMore] = useState(false); // loader pagination
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
 
-  const [page, setPage] = useState(1); // page "logique"
+  const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(true);
+
+  const [showShiny, setShowShiny] = useState(false);
 
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
-    // charge la première page
     resetAndLoadFirstPage();
   }, []);
 
@@ -55,13 +60,14 @@ export default function Index() {
     loadListPage(1, true);
   }
 
-  async function loadListPage(pageNumber: number, isFirstLoad = false) {
-    // Si on est en recherche, on ne paginate pas
-    if (searchQuery.trim()) return;
+  function getDisplayedArtwork(p: Pokemon) {
+    return showShiny ? p.artworkShinny ?? p.artwork : p.artwork;
+  }
 
+  async function loadListPage(pageNumber: number, isFirstLoad = false) {
+    if (searchQuery.trim()) return;
     if (!hasNextPage && !isFirstLoad) return;
 
-    // loaders séparés (initial vs pagination)
     if (isFirstLoad) setIsLoading(true);
     else setIsLoadingMore(true);
 
@@ -75,7 +81,6 @@ export default function Index() {
       const data: { results: PokemonListItem[]; next: string | null } =
         await response.json();
 
-      // si next est null -> plus de page
       setHasNextPage(Boolean(data.next));
 
       const detailPokemons: Pokemon[] = await Promise.all(
@@ -88,11 +93,14 @@ export default function Index() {
             image: details.sprites.front_default,
             imageBack: details.sprites.back_default,
             types: details.types,
+            artwork:
+              details.sprites?.other?.["official-artwork"]?.front_default ?? null,
+            artworkShinny:
+              details.sprites?.other?.["official-artwork"]?.front_shiny ?? null,
           };
         })
       );
 
-      // append (concat) au lieu de remplacer
       setPokemons((prev) => [...prev, ...detailPokemons]);
       setPage(pageNumber);
     } catch (e: any) {
@@ -127,11 +135,13 @@ export default function Index() {
         image: details.sprites.front_default,
         imageBack: details.sprites.back_default,
         types: details.types,
+        artwork:
+          details.sprites?.other?.["official-artwork"]?.front_default ?? null,
+        artworkShinny:
+          details.sprites?.other?.["official-artwork"]?.front_shiny ?? null,
       };
 
       setPokemons([pokemon]);
-
-      // en mode recherche: pas de next page
       setHasNextPage(false);
     } catch (e: any) {
       if (e?.name !== "AbortError") console.log(e);
@@ -140,29 +150,18 @@ export default function Index() {
     }
   }
 
-  // Debounce recherche (400ms)
   useEffect(() => {
     const q = searchQuery.trim().toLowerCase();
 
     const timer = setTimeout(() => {
-      if (!q) {
-        // retour liste + pagination
-        resetAndLoadFirstPage();
-      } else {
-        // recherche exacte
-        loadByName(q);
-      }
+      if (!q) resetAndLoadFirstPage();
+      else loadByName(q);
     }, 400);
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
   const handleLoadMore = () => {
-    // éviter multi-calls
     if (isLoading || isLoadingMore) return;
     if (!hasNextPage) return;
     if (searchQuery.trim()) return;
@@ -178,9 +177,16 @@ export default function Index() {
         autoCapitalize="none"
         autoCorrect={false}
         value={searchQuery}
-        onChangeText={handleSearch}
+        onChangeText={setSearchQuery}
         placeholder="Recherche (ex: pikachu)"
       />
+
+      {/* Switch Shiny */}
+      <View style={styles.switchRow}>
+        <Text style={styles.switchLabel}>Shiny</Text>
+        <Switch value={showShiny} onValueChange={setShowShiny} />
+        <Text style={styles.switchState}>{showShiny ? "ON" : "OFF"}</Text>
+      </View>
 
       {isLoading ? (
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center" }}>
@@ -205,54 +211,69 @@ export default function Index() {
               Aucun Pokémon trouvé
             </Text>
           }
-          renderItem={({ item: pokemon }) => (
-            <Link
-              href={{ pathname: "/details", params: { name: pokemon.name } }}
-              style={{
-                // @ts-ignore
-                backgroundColor: TYPE_META[pokemon.types[0].type.name].color + "50",
-                padding: 20,
-                borderRadius: 20,
-              }}
-            >
-              <View style={styles.cardContent}>
-                <Text style={styles.name}>{pokemon.name}</Text>
+          renderItem={({ item: pokemon }) => {
+            const displayedArtwork = getDisplayedArtwork(pokemon);
 
-                <View style={styles.typeRow}>
-                  {pokemon.types.map((t, index) => {
-                    const meta = TYPE_META[t.type.name];
-                    return (
-                      <View key={t.type.name} style={styles.badgeWrapper}>
-                        <View
-                          style={[
-                            styles.badge,
-                            { backgroundColor: meta?.color ?? "#ccc" },
-                          ]}
-                        >
-                          <Text style={styles.badgeText}>
-                            {meta?.emoji ?? "❓"} {t.type.name}
-                          </Text>
-                        </View>
+            return (
+              <Link
+                href={{ pathname: "/details", params: { name: pokemon.name } }}
+                style={{
+                  // @ts-ignore
+                  backgroundColor: TYPE_META[pokemon.types[0].type.name].color + "50",
+                  padding: 20,
+                  borderRadius: 20,
+                }}
+                asChild
+              >
+                <Pressable
+                  style={{
+                    // @ts-ignore
+                    backgroundColor: TYPE_META[pokemon.types[0].type.name].color + "50",
+                    padding: 20,
+                    borderRadius: 20,
+                  }}
+                >
+                  <View style={styles.cardContent}>
+                    <Text style={styles.name}>{pokemon.name}</Text>
 
-                        {index < pokemon.types.length - 1 && (
-                          <Text style={styles.separator}> / </Text>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
+                    <View style={styles.typeRow}>
+                      {pokemon.types.map((t, index) => {
+                        const meta = TYPE_META[t.type.name];
+                        return (
+                          <View key={t.type.name} style={styles.badgeWrapper}>
+                            <View
+                              style={[
+                                styles.badge,
+                                { backgroundColor: meta?.color ?? "#ccc" },
+                              ]}
+                            >
+                              <Text style={styles.badgeText}>
+                                {meta?.emoji ?? "❓"} {t.type.name}
+                              </Text>
+                            </View>
 
-                <View style={styles.imageRow}>
-                  {!!pokemon.image && (
-                    <Image source={{ uri: pokemon.image }} style={styles.image} />
-                  )}
-                  {!!pokemon.imageBack && (
-                    <Image source={{ uri: pokemon.imageBack }} style={styles.image} />
-                  )}
-                </View>
-              </View>
-            </Link>
-          )}
+                            {index < pokemon.types.length - 1 && (
+                              <Text style={styles.separator}> / </Text>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+
+                    <View style={styles.artworkWrapper}>
+                      {displayedArtwork ? (
+                        <Image source={{ uri: displayedArtwork }} style={styles.artworkImage} />
+                      ) : (
+                        <Text style={{ marginTop: 10, opacity: 0.7 }}>
+                          Artwork indisponible
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                </Pressable>
+              </Link>
+            );
+          }}
         />
       )}
     </SafeAreaView>
@@ -261,23 +282,48 @@ export default function Index() {
 
 const styles = StyleSheet.create({
   name: { fontSize: 28, fontWeight: "bold", textAlign: "center" },
+
   searchBar: {
     paddingHorizontal: 20,
     borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,
   },
+
+  switchRow: {
+    marginTop: 10,
+    paddingHorizontal: 6,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 10,
+  },
+  switchLabel: { fontWeight: "700" },
+  switchState: { width: 40, textAlign: "left", fontWeight: "700" },
+
   badgeWrapper: { flexDirection: "row", alignItems: "center" },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
   badgeText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
   separator: { marginHorizontal: 6, fontWeight: "bold" },
+
   cardContent: { alignItems: "center", gap: 8 },
+
   typeRow: {
     flexDirection: "row",
     justifyContent: "center",
     flexWrap: "wrap",
     marginTop: 4,
   },
-  imageRow: { flexDirection: "row", justifyContent: "center", marginTop: 8 },
-  image: { width: 150, height: 150 },
+
+  artworkWrapper: {
+    marginTop: 8,
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  artworkImage: {
+    width: 220,
+    height: 220,
+    resizeMode: "contain",
+  },
 });

@@ -16,6 +16,8 @@
     <td><img src="assets/images/demo_1.PNG" alt="Exemple 1" width="220"></td>
     <td><img src="assets/images/demo_2.PNG" alt="Exemple 2" width="220"></td>
     <td><img src="assets/images/demo_3.png" alt="Exemple 2" width="220"></td>
+    <td><img src="assets/images/demo_4.png" alt="Exemple 2" width="220"></td>
+    <td><img src="assets/images/demo_5.png" alt="Exemple 2" width="220"></td>
   </tr>
 </table>
 
