@@ -1,21 +1,23 @@
-  export const colorsByType = {
-    normal: "#A8A77A",
-    fire: "#EE8130",
-    water: "#6390F0",
-    electric: "#F7D02C",
-    grass: "#7AC74C",
-    ice: "#96D9D6",
-    fighting: "#C22E28",
-    poison: "#A33EA1",
-    ground: "#E2BF65",
-    flying: "#A98FF3",
-    psychic: "#F95587",
-    bug: "#A6B91A",
-    rock: "#B6A136",
-    ghost: "#735797",
-    dragon: "#6F35FC",
-    dark: "#705746",
-    steel: "#B7B7CE",
-    fair: "#D685AD"
-
-  }
+export const TYPE_META: Record<
+  string,
+  { color: string; emoji: string }
+> = {
+  fire: { color: "#F08030", emoji: "🔥" },
+  water: { color: "#6890F0", emoji: "💧" },
+  grass: { color: "#78C850", emoji: "🌿" },
+  electric: { color: "#F8D030", emoji: "⚡" },
+  ice: { color: "#98D8D8", emoji: "❄️" },
+  fighting: { color: "#C03028", emoji: "🥊" },
+  poison: { color: "#A040A0", emoji: "☠️" },
+  ground: { color: "#E0C068", emoji: "🌍" },
+  flying: { color: "#A890F0", emoji: "🕊️" },
+  psychic: { color: "#F85888", emoji: "🧠" },
+  bug: { color: "#A8B820", emoji: "🐛" },
+  rock: { color: "#B8A038", emoji: "🪨" },
+  ghost: { color: "#705898", emoji: "👻" },
+  dark: { color: "#705848", emoji: "🌑" },
+  dragon: { color: "#7038F8", emoji: "🐉" },
+  steel: { color: "#B8B8D0", emoji: "⚙️" },
+  fairy: { color: "#EE99AC", emoji: "🧚" },
+  normal: { color: "#A8A878", emoji: "⚪" },
+};

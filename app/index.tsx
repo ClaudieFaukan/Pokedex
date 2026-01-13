@@ -1,4 +1,4 @@
-import { colorsByType } from "@/themes/colorsByType";
+import { TYPE_META } from "@/themes/colorsByType";
 import { Link } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import {
@@ -156,37 +156,69 @@ export default function Index() {
             </Text>
           }
           renderItem={({ item: pokemon }) => (
-            <Link key={pokemon.name}
-              href={{ pathname: '/details', params: { name: pokemon.name } }}
+            <Link
+              href={{ pathname: "/details", params: { name: pokemon.name } }}
               style={{
                 // @ts-ignore
-                backgroundColor: colorsByType[pokemon.types[0].type.name] + 50,
+                backgroundColor:
+                  TYPE_META[pokemon.types[0].type.name].color + "50",
                 padding: 20,
-                borderRadius: 20
+                borderRadius: 20,
               }}
             >
-              <Text style={styles.name}>{pokemon.name}</Text>
-              <Text style={styles.type}>{pokemon.types?.[0]?.type?.name}</Text>
+              <View style={styles.cardContent}>
+                {/* NOM */}
+                <Text style={styles.name}>{pokemon.name}</Text>
 
-              <View style={{ flexDirection: "row", justifyContent: "center" }}>
-                {!!pokemon.image && (
-                  <Image
-                    source={{ uri: pokemon.image }}
-                    style={{ width: 150, height: 150 }}
-                  />
-                )}
-                {!!pokemon.imageBack && (
-                  <Image
-                    source={{ uri: pokemon.imageBack }}
-                    style={{ width: 150, height: 150 }}
-                  />
-                )}
+                {/* TYPES (ligne dessous) */}
+                <View style={styles.typeRow}>
+                  {pokemon.types.map((t, index) => {
+                    const meta = TYPE_META[t.type.name];
+
+                    return (
+                      <View key={t.type.name} style={styles.badgeWrapper}>
+                        <View
+                          style={[
+                            styles.badge,
+                            { backgroundColor: meta?.color ?? "#ccc" },
+                          ]}
+                        >
+                          <Text style={styles.badgeText}>
+                            {meta?.emoji ?? "❓"} {t.type.name}
+                          </Text>
+                        </View>
+
+                        {index < pokemon.types.length - 1 && (
+                          <Text style={styles.separator}> / </Text>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+
+                {/* IMAGES */}
+                <View style={styles.imageRow}>
+                  {!!pokemon.image && (
+                    <Image
+                      source={{ uri: pokemon.image }}
+                      style={styles.image}
+                    />
+                  )}
+                  {!!pokemon.imageBack && (
+                    <Image
+                      source={{ uri: pokemon.imageBack }}
+                      style={styles.image}
+                    />
+                  )}
+                </View>
               </View>
             </Link>
-          )}
+
+          )
+          }
         />
       )}
-    </SafeAreaView>
+    </SafeAreaView >
   );
 }
 
@@ -199,4 +231,53 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 8,
   },
+  badgeWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 14,
+  },
+
+  badgeText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 14,
+  },
+
+  separator: {
+    marginHorizontal: 6,
+    fontWeight: "bold",
+  },
+  typeText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#444",
+  },
+  cardContent: {
+    alignItems: "center", // ✅ centre TOUT horizontalement
+    gap: 8,
+  },
+
+  typeRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
+    marginTop: 4,
+  },
+
+  imageRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    marginTop: 8,
+  },
+
+  image: {
+    width: 150,
+    height: 150,
+  },
+
 });
