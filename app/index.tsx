@@ -18,41 +18,65 @@ interface Pokemon {
   imageBack: string;
   types: PokemonType[];
 }
-
 interface PokemonType {
-  type: {
-    name: string;
-    url: string;
-  };
+  type: { name: string; url: string };
 }
-
 type PokemonListItem = { name: string; url: string };
 
 export default function Index() {
-  const LIST_ENDPOINT = "https://pokeapi.co/api/v2/pokemon?limit=50";
   const DETAIL_ENDPOINT = "https://pokeapi.co/api/v2/pokemon"; // /{name}
+  const LIMIT = 50;
 
   const [pokemons, setPokemons] = useState<Pokemon[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Pour annuler les fetchs quand on retape vite
+  const [isLoading, setIsLoading] = useState(false);       // loader initial
+  const [isLoadingMore, setIsLoadingMore] = useState(false); // loader pagination
+
+  const [page, setPage] = useState(1); // page "logique"
+  const [hasNextPage, setHasNextPage] = useState(true);
+
   const abortRef = useRef<AbortController | null>(null);
 
-  // Charge la liste au démarrage
   useEffect(() => {
-    loadList();
+    // charge la première page
+    resetAndLoadFirstPage();
   }, []);
 
-  async function loadList() {
-    setIsLoading(true);
+  function buildListUrl(pageNumber: number) {
+    const offset = (pageNumber - 1) * LIMIT;
+    return `https://pokeapi.co/api/v2/pokemon?limit=${LIMIT}&offset=${offset}`;
+  }
+
+  function resetAndLoadFirstPage() {
+    setPokemons([]);
+    setPage(1);
+    setHasNextPage(true);
+    loadListPage(1, true);
+  }
+
+  async function loadListPage(pageNumber: number, isFirstLoad = false) {
+    // Si on est en recherche, on ne paginate pas
+    if (searchQuery.trim()) return;
+
+    if (!hasNextPage && !isFirstLoad) return;
+
+    // loaders séparés (initial vs pagination)
+    if (isFirstLoad) setIsLoading(true);
+    else setIsLoadingMore(true);
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
 
     try {
-      const response = await fetch(LIST_ENDPOINT, { signal: controller.signal });
-      const data: { results: PokemonListItem[] } = await response.json();
+      const url = buildListUrl(pageNumber);
+      const response = await fetch(url, { signal: controller.signal });
+      const data: { results: PokemonListItem[]; next: string | null } =
+        await response.json();
+
+      // si next est null -> plus de page
+      setHasNextPage(Boolean(data.next));
 
       const detailPokemons: Pokemon[] = await Promise.all(
         data.results.map(async (p) => {
@@ -60,7 +84,7 @@ export default function Index() {
           const details = await res.json();
 
           return {
-            name: p.name,
+            name: details.name,
             image: details.sprites.front_default,
             imageBack: details.sprites.back_default,
             types: details.types,
@@ -68,16 +92,20 @@ export default function Index() {
         })
       );
 
-      setPokemons(detailPokemons);
+      // append (concat) au lieu de remplacer
+      setPokemons((prev) => [...prev, ...detailPokemons]);
+      setPage(pageNumber);
     } catch (e: any) {
       if (e?.name !== "AbortError") console.log(e);
     } finally {
-      setIsLoading(false);
+      if (isFirstLoad) setIsLoading(false);
+      else setIsLoadingMore(false);
     }
   }
 
   async function loadByName(name: string) {
     setIsLoading(true);
+
     abortRef.current?.abort();
     const controller = new AbortController();
     abortRef.current = controller;
@@ -88,7 +116,6 @@ export default function Index() {
       });
 
       if (!response.ok) {
-        // 404 = pas trouvé → liste vide
         setPokemons([]);
         return;
       }
@@ -103,6 +130,9 @@ export default function Index() {
       };
 
       setPokemons([pokemon]);
+
+      // en mode recherche: pas de next page
+      setHasNextPage(false);
     } catch (e: any) {
       if (e?.name !== "AbortError") console.log(e);
     } finally {
@@ -110,15 +140,17 @@ export default function Index() {
     }
   }
 
-
+  // Debounce recherche (400ms)
   useEffect(() => {
     const q = searchQuery.trim().toLowerCase();
 
     const timer = setTimeout(() => {
       if (!q) {
-        loadList(); // retour liste
+        // retour liste + pagination
+        resetAndLoadFirstPage();
       } else {
-        loadByName(q); // recherche endpoint
+        // recherche exacte
+        loadByName(q);
       }
     }, 400);
 
@@ -127,6 +159,15 @@ export default function Index() {
 
   const handleSearch = (query: string) => {
     setSearchQuery(query);
+  };
+
+  const handleLoadMore = () => {
+    // éviter multi-calls
+    if (isLoading || isLoadingMore) return;
+    if (!hasNextPage) return;
+    if (searchQuery.trim()) return;
+
+    loadListPage(page + 1);
   };
 
   return (
@@ -138,7 +179,7 @@ export default function Index() {
         autoCorrect={false}
         value={searchQuery}
         onChangeText={handleSearch}
-        placeholder="Recherce (ex: pikachu)"
+        placeholder="Recherche (ex: pikachu)"
       />
 
       {isLoading ? (
@@ -150,6 +191,15 @@ export default function Index() {
           data={pokemons}
           keyExtractor={(pokemon) => pokemon.name}
           contentContainerStyle={{ paddingVertical: 12, gap: 12 }}
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            isLoadingMore ? (
+              <View style={{ paddingVertical: 16 }}>
+                <ActivityIndicator size={"small"} color="orange" />
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <Text style={{ textAlign: "center", marginTop: 20 }}>
               Aucun Pokémon trouvé
@@ -160,21 +210,17 @@ export default function Index() {
               href={{ pathname: "/details", params: { name: pokemon.name } }}
               style={{
                 // @ts-ignore
-                backgroundColor:
-                  TYPE_META[pokemon.types[0].type.name].color + "50",
+                backgroundColor: TYPE_META[pokemon.types[0].type.name].color + "50",
                 padding: 20,
                 borderRadius: 20,
               }}
             >
               <View style={styles.cardContent}>
-                {/* NOM */}
                 <Text style={styles.name}>{pokemon.name}</Text>
 
-                {/* TYPES (ligne dessous) */}
                 <View style={styles.typeRow}>
                   {pokemon.types.map((t, index) => {
                     const meta = TYPE_META[t.type.name];
-
                     return (
                       <View key={t.type.name} style={styles.badgeWrapper}>
                         <View
@@ -196,88 +242,42 @@ export default function Index() {
                   })}
                 </View>
 
-                {/* IMAGES */}
                 <View style={styles.imageRow}>
                   {!!pokemon.image && (
-                    <Image
-                      source={{ uri: pokemon.image }}
-                      style={styles.image}
-                    />
+                    <Image source={{ uri: pokemon.image }} style={styles.image} />
                   )}
                   {!!pokemon.imageBack && (
-                    <Image
-                      source={{ uri: pokemon.imageBack }}
-                      style={styles.image}
-                    />
+                    <Image source={{ uri: pokemon.imageBack }} style={styles.image} />
                   )}
                 </View>
               </View>
             </Link>
-
-          )
-          }
+          )}
         />
       )}
-    </SafeAreaView >
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   name: { fontSize: 28, fontWeight: "bold", textAlign: "center" },
-  type: { fontSize: 20, fontWeight: "bold", color: "gray", textAlign: "center" },
   searchBar: {
     paddingHorizontal: 20,
     borderColor: "#ccc",
     borderWidth: 1,
     borderRadius: 8,
   },
-  badgeWrapper: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 14,
-  },
-
-  badgeText: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 14,
-  },
-
-  separator: {
-    marginHorizontal: 6,
-    fontWeight: "bold",
-  },
-  typeText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#444",
-  },
-  cardContent: {
-    alignItems: "center", // ✅ centre TOUT horizontalement
-    gap: 8,
-  },
-
+  badgeWrapper: { flexDirection: "row", alignItems: "center" },
+  badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14 },
+  badgeText: { color: "#fff", fontWeight: "bold", fontSize: 14 },
+  separator: { marginHorizontal: 6, fontWeight: "bold" },
+  cardContent: { alignItems: "center", gap: 8 },
   typeRow: {
     flexDirection: "row",
     justifyContent: "center",
     flexWrap: "wrap",
     marginTop: 4,
   },
-
-  imageRow: {
-    flexDirection: "row",
-    justifyContent: "center",
-    marginTop: 8,
-  },
-
-  image: {
-    width: 150,
-    height: 150,
-  },
-
+  imageRow: { flexDirection: "row", justifyContent: "center", marginTop: 8 },
+  image: { width: 150, height: 150 },
 });
